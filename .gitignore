@@ -1,0 +1,12 @@
+/build/
+/out/
+/.cache/
+/.vscode/
+/.idea/
+compile_commands.json
+*.swp
+*.swo
+
+# Reference data is downloaded locally and must not be committed.
+/reference-data/
+
