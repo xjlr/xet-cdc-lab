@@ -69,4 +69,77 @@ TEST_CASE("Two Chunkers produce identical boundaries for identical input", "[chu
     }
 }
 
+TEST_CASE("Chunker finish returns no boundary for empty input", "[chunker]") {
+    Chunker chunker;
+
+    const auto boundary = chunker.finish();
+
+    REQUIRE_FALSE(boundary.has_value());
+}
+
+TEST_CASE("Chunker finish emits a final chunk smaller than minimum size", "[chunker]") {
+    Chunker chunker;
+
+    constexpr std::size_t input_size = 100;
+
+    for (std::size_t i = 0; i < input_size; ++i) {
+        REQUIRE_FALSE(chunker.update(0x42).has_value());
+    }
+
+    const auto boundary = chunker.finish();
+
+    REQUIRE(boundary.has_value());
+    REQUIRE(boundary->offset == 0);
+    REQUIRE(boundary->size == input_size);
+}
+
+TEST_CASE("Chunker finish emits the remaining tail with correct offset", "[chunker]") {
+    Chunker chunker;
+
+    std::optional<ChunkBoundary> emitted_boundary;
+
+    for (std::size_t i = 0; i < 10 * kMaxChunkSize; ++i) {
+        const auto boundary =
+            chunker.update(static_cast<std::uint8_t>(i & 0xFF));
+
+        if (boundary) {
+            emitted_boundary = boundary;
+            break;
+        }
+    }
+
+    REQUIRE(emitted_boundary.has_value());
+
+    constexpr std::size_t tail_size = 100;
+
+    for (std::size_t i = 0; i < tail_size; ++i) {
+        REQUIRE_FALSE(chunker.update(0x42).has_value());
+    }
+
+    const auto final_boundary = chunker.finish();
+
+    REQUIRE(final_boundary.has_value());
+    REQUIRE(final_boundary->offset == emitted_boundary->end_offset());
+    REQUIRE(final_boundary->size == tail_size);
+}
+
+TEST_CASE("Chunker finish does not emit the final chunk twice", "[chunker]") {
+    Chunker chunker;
+
+    constexpr std::size_t input_size = 100;
+
+    for (std::size_t i = 0; i < input_size; ++i) {
+        REQUIRE_FALSE(chunker.update(0x42).has_value());
+    }
+
+    const auto first = chunker.finish();
+    const auto second = chunker.finish();
+
+    REQUIRE(first.has_value());
+    REQUIRE(first->offset == 0);
+    REQUIRE(first->size == input_size);
+
+    REQUIRE_FALSE(second.has_value());
+}
+
 } // namespace

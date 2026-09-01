@@ -13,6 +13,7 @@ class Chunker {
     Chunker() noexcept = default;
 
     [[nodiscard]] std::optional<ChunkBoundary> update(std::uint8_t byte) noexcept;
+    [[nodiscard]] std::optional<ChunkBoundary> finish() noexcept;
 
   private:
     GearHash hash_;

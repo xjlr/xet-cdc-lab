@@ -21,4 +21,17 @@ std::optional<ChunkBoundary> Chunker::update(std::uint8_t byte) noexcept {
     return std::nullopt;
 }
 
+std::optional<ChunkBoundary> Chunker::finish() noexcept {
+    if (chunk_size_ == 0) {
+        return std::nullopt;
+    }
+
+    ChunkBoundary boundary{chunk_offset_, chunk_size_};
+    chunk_offset_ += chunk_size_;
+    chunk_size_ = 0;
+    hash_.reset();
+
+    return boundary;
+}
+
 } // namespace xet::cdc
