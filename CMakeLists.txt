@@ -61,7 +61,7 @@ if(XET_CDC_ENABLE_SANITIZERS)
     endif()
 endif()
 
-add_library(xet_cdc STATIC src/gear_hash.cpp)
+add_library(xet_cdc STATIC src/gear_hash.cpp src/chunker.cpp)
 add_library(xet_cdc::xet_cdc ALIAS xet_cdc)
 
 target_compile_features(xet_cdc PUBLIC cxx_std_20)

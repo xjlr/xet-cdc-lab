@@ -12,7 +12,7 @@ FetchContent_MakeAvailable(Catch2)
 list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/extras)
 include(Catch)
 
-add_executable(xet_cdc_tests protocol_constants_test.cpp gear_hash_test.cpp)
+add_executable(xet_cdc_tests protocol_constants_test.cpp gear_hash_test.cpp chunker_test.cpp)
 target_link_libraries(
     xet_cdc_tests
     PRIVATE
