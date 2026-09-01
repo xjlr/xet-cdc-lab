@@ -61,15 +61,22 @@ if(XET_CDC_ENABLE_SANITIZERS)
     endif()
 endif()
 
-add_library(xet_cdc INTERFACE)
+add_library(xet_cdc STATIC src/gear_hash.cpp)
 add_library(xet_cdc::xet_cdc ALIAS xet_cdc)
 
-target_compile_features(xet_cdc INTERFACE cxx_std_20)
+target_compile_features(xet_cdc PUBLIC cxx_std_20)
 target_include_directories(
     xet_cdc
-    INTERFACE
+    PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
+target_link_libraries(
+    xet_cdc
+    PRIVATE
+        xet_cdc_warnings
+        xet_cdc_sanitizers
+)
+set_target_properties(xet_cdc PROPERTIES CXX_EXTENSIONS OFF)
 
 add_executable(xet-cdc app/main.cpp)
 target_link_libraries(
