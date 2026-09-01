@@ -21,8 +21,7 @@ TEST_CASE("Chunker emits only valid chunk sizes", "[chunker]") {
     Chunker chunker;
 
     for (std::size_t i = 0; i < 20 * kMaxChunkSize; ++i) {
-        const auto boundary =
-            chunker.update(static_cast<std::uint8_t>(i & 0xFF));
+        const auto boundary = chunker.update(static_cast<std::uint8_t>(i & 0xFF));
 
         if (!boundary) {
             continue;
@@ -40,16 +39,14 @@ TEST_CASE("Chunker emits contiguous boundaries", "[chunker]") {
     std::size_t emitted_boundaries = 0;
 
     for (std::size_t i = 0; i < 20 * kMaxChunkSize; ++i) {
-        const auto boundary =
-            chunker.update(static_cast<std::uint8_t>(i & 0xFF));
+        const auto boundary = chunker.update(static_cast<std::uint8_t>(i & 0xFF));
 
         if (!boundary) {
             continue;
         }
 
         REQUIRE(boundary->offset == expected_offset);
-        REQUIRE(boundary->end_offset() ==
-                expected_offset + boundary->size);
+        REQUIRE(boundary->end_offset() == expected_offset + boundary->size);
 
         expected_offset += boundary->size;
         ++emitted_boundaries;
@@ -58,8 +55,7 @@ TEST_CASE("Chunker emits contiguous boundaries", "[chunker]") {
     REQUIRE(emitted_boundaries > 0);
 }
 
-TEST_CASE("Two Chunkers produce identical boundaries for identical input",
-          "[chunker]") {
+TEST_CASE("Two Chunkers produce identical boundaries for identical input", "[chunker]") {
     Chunker first;
     Chunker second;
 
