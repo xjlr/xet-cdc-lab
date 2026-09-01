@@ -99,8 +99,7 @@ TEST_CASE("Chunker finish emits the remaining tail with correct offset", "[chunk
     std::optional<ChunkBoundary> emitted_boundary;
 
     for (std::size_t i = 0; i < 10 * kMaxChunkSize; ++i) {
-        const auto boundary =
-            chunker.update(static_cast<std::uint8_t>(i & 0xFF));
+        const auto boundary = chunker.update(static_cast<std::uint8_t>(i & 0xFF));
 
         if (boundary) {
             emitted_boundary = boundary;
