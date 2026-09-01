@@ -30,7 +30,8 @@ small, independently tested steps.
 
 - implement the fixed 256-entry GearHash table;
 - use 64-bit wrapping arithmetic;
-- enforce the 8 KiB minimum and 128 KiB maximum chunk sizes;
+- enforce the 8 KiB minimum and 128 KiB maximum chunk sizes, noting that the
+  minimum does not apply to the final chunk or a file smaller than the minimum;
 - reset the rolling state after each emitted boundary;
 - support input incrementally so results do not depend on read-buffer size;
 - validate all 796 boundaries of the official reference CSV.
@@ -77,14 +78,18 @@ Planned core types:
 Requirements:
 
 - C++20 compiler (GCC 11+, Clang 14+, or equivalent);
-- CMake 3.20+.
+- CMake 3.21+.
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
-cmake --build build --parallel
-ctest --test-dir build --output-on-failure
-./build/xet-cdc --help
+cmake --preset debug
+cmake --build --preset debug --parallel
+ctest --preset debug
+./build/debug/xet-cdc --help
 ```
+
+The `release` and `asan` presets provide a release build and a Debug build with
+AddressSanitizer and UndefinedBehaviorSanitizer. The test suite uses Catch2,
+which CMake downloads and verifies by SHA-256 during the first configuration.
 
 On Ubuntu 22.04, install the build tools if necessary:
 
@@ -108,4 +113,3 @@ Git because the upstream Hugging Face repository is the source of truth.
 - implementing Xorbs, shards, reconstruction, authentication, or CAS networking;
 - competing with the optimized Rust implementation in `xet-core`;
 - claiming protocol compatibility before every reference case passes.
-

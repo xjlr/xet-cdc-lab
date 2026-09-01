@@ -4,9 +4,9 @@
 /.vscode/
 /.idea/
 compile_commands.json
+CMakeUserPresets.json
 *.swp
 *.swo
 
 # Reference data is downloaded locally and must not be committed.
 /reference-data/
-

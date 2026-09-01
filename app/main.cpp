@@ -17,8 +17,7 @@ void print_usage(std::ostream& output) {
 } // namespace
 
 int main(int argc, char* argv[]) {
-    if (argc == 1 || std::string_view{argv[1]} == "--help" ||
-        std::string_view{argv[1]} == "-h") {
+    if (argc == 1 || std::string_view{argv[1]} == "--help" || std::string_view{argv[1]} == "-h") {
         print_usage(std::cout);
         return 0;
     }
@@ -27,4 +26,3 @@ int main(int argc, char* argv[]) {
     print_usage(std::cerr);
     return 2;
 }
-

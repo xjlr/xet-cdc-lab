@@ -4,9 +4,30 @@ on:
   push:
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-test:
+    name: ${{ matrix.compiler }} / ${{ matrix.build_type }}
     runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+        build_type: [Debug, Release]
+        include:
+          - compiler: gcc
+            cc: gcc
+            cxx: g++
+          - compiler: clang
+            cc: clang
+            cxx: clang++
+
+    env:
+      CC: ${{ matrix.cc }}
+      CXX: ${{ matrix.cxx }}
 
     steps:
       - uses: actions/checkout@v4
@@ -14,7 +35,7 @@ jobs:
       - name: Configure
         run: >-
           cmake -S . -B build
-          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
           -DXET_CDC_WARNINGS_AS_ERRORS=ON
 
       - name: Build
@@ -23,3 +44,39 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
+  sanitizers:
+    name: ASan + UBSan
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: >-
+          cmake -S . -B build
+          -DCMAKE_BUILD_TYPE=Debug
+          -DXET_CDC_WARNINGS_AS_ERRORS=ON
+          -DXET_CDC_ENABLE_SANITIZERS=ON
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+        env:
+          UBSAN_OPTIONS: print_stacktrace=1
+
+  format:
+    name: clang-format
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: pipx install clang-format==20.1.8
+
+      - name: Check formatting
+        run: >-
+          find app include tests \( -name '*.cpp' -o -name '*.hpp' \) -print0
+          | xargs -0 clang-format --dry-run --Werror
