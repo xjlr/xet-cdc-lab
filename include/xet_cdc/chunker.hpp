@@ -14,8 +14,7 @@ class Chunker {
   public:
     Chunker() noexcept = default;
 
-    [[nodiscard]] std::vector<ChunkBoundary>
-    consume(std::span<const std::uint8_t> data);
+    [[nodiscard]] std::vector<ChunkBoundary> consume(std::span<const std::uint8_t> data);
 
     [[nodiscard]] std::optional<ChunkBoundary> finish() noexcept;
 
