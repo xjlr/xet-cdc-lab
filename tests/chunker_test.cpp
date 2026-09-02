@@ -2,8 +2,12 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
+#include <span>
+#include <vector>
 
 namespace {
 
@@ -12,61 +16,97 @@ using namespace xet::cdc;
 TEST_CASE("Chunker does not emit before minimum chunk size", "[chunker]") {
     Chunker chunker;
 
-    for (std::size_t i = 0; i < kMinChunkSize - 1; ++i) {
-        REQUIRE_FALSE(chunker.update(0x42).has_value());
-    }
+    std::vector<std::uint8_t> data(kMinChunkSize - 1, 0x42);
+
+    const auto boundaries = chunker.consume(data);
+
+    REQUIRE(boundaries.empty());
 }
 
 TEST_CASE("Chunker emits only valid chunk sizes", "[chunker]") {
     Chunker chunker;
 
-    for (std::size_t i = 0; i < 20 * kMaxChunkSize; ++i) {
-        const auto boundary = chunker.update(static_cast<std::uint8_t>(i & 0xFF));
+    std::vector<std::uint8_t> data(20 * kMaxChunkSize);
 
-        if (!boundary) {
-            continue;
-        }
+    for (std::size_t i = 0; i < data.size(); ++i) {
+        data[i] = static_cast<std::uint8_t>(i & 0xFF);
+    }
 
-        REQUIRE(boundary->size >= kMinChunkSize);
-        REQUIRE(boundary->size <= kMaxChunkSize);
+    const auto boundaries = chunker.consume(data);
+
+    REQUIRE_FALSE(boundaries.empty());
+
+    for (const auto& boundary : boundaries) {
+        REQUIRE(boundary.size >= kMinChunkSize);
+        REQUIRE(boundary.size <= kMaxChunkSize);
     }
 }
 
 TEST_CASE("Chunker emits contiguous boundaries", "[chunker]") {
     Chunker chunker;
 
-    std::uint64_t expected_offset = 0;
-    std::size_t emitted_boundaries = 0;
+    std::vector<std::uint8_t> data(20 * kMaxChunkSize);
 
-    for (std::size_t i = 0; i < 20 * kMaxChunkSize; ++i) {
-        const auto boundary = chunker.update(static_cast<std::uint8_t>(i & 0xFF));
-
-        if (!boundary) {
-            continue;
-        }
-
-        REQUIRE(boundary->offset == expected_offset);
-        REQUIRE(boundary->end_offset() == expected_offset + boundary->size);
-
-        expected_offset += boundary->size;
-        ++emitted_boundaries;
+    for (std::size_t i = 0; i < data.size(); ++i) {
+        data[i] = static_cast<std::uint8_t>(i & 0xFF);
     }
 
-    REQUIRE(emitted_boundaries > 0);
+    const auto boundaries = chunker.consume(data);
+
+    REQUIRE_FALSE(boundaries.empty());
+
+    std::uint64_t expected_offset = 0;
+
+    for (const auto& boundary : boundaries) {
+        REQUIRE(boundary.offset == expected_offset);
+        REQUIRE(boundary.end_offset() == expected_offset + boundary.size);
+
+        expected_offset += boundary.size;
+    }
 }
 
 TEST_CASE("Two Chunkers produce identical boundaries for identical input", "[chunker]") {
     Chunker first;
     Chunker second;
 
-    for (std::size_t i = 0; i < 20 * kMaxChunkSize; ++i) {
-        const auto byte = static_cast<std::uint8_t>(i & 0xFF);
+    std::vector<std::uint8_t> data(20 * kMaxChunkSize);
 
-        const auto first_boundary = first.update(byte);
-        const auto second_boundary = second.update(byte);
-
-        REQUIRE(first_boundary == second_boundary);
+    for (std::size_t i = 0; i < data.size(); ++i) {
+        data[i] = static_cast<std::uint8_t>(i & 0xFF);
     }
+
+    const auto first_boundaries = first.consume(data);
+    const auto second_boundaries = second.consume(data);
+
+    REQUIRE(first_boundaries == second_boundaries);
+}
+
+TEST_CASE("Chunker produces identical boundaries across different input splits", "[chunker]") {
+    std::vector<std::uint8_t> data(20 * kMaxChunkSize);
+
+    for (std::size_t i = 0; i < data.size(); ++i) {
+        data[i] = static_cast<std::uint8_t>(i & 0xFF);
+    }
+
+    Chunker whole_input_chunker;
+    const auto whole_boundaries = whole_input_chunker.consume(data);
+
+    Chunker split_input_chunker;
+    std::vector<ChunkBoundary> split_boundaries;
+
+    constexpr std::size_t block_size = 4096;
+
+    for (std::size_t offset = 0; offset < data.size(); offset += block_size) {
+        const std::size_t size = std::min(block_size, data.size() - offset);
+
+        const std::span<const std::uint8_t> block(data.data() + offset, size);
+
+        const auto boundaries = split_input_chunker.consume(block);
+
+        split_boundaries.insert(split_boundaries.end(), boundaries.begin(), boundaries.end());
+    }
+
+    REQUIRE(split_boundaries == whole_boundaries);
 }
 
 TEST_CASE("Chunker finish returns no boundary for empty input", "[chunker]") {
@@ -82,9 +122,11 @@ TEST_CASE("Chunker finish emits a final chunk smaller than minimum size", "[chun
 
     constexpr std::size_t input_size = 100;
 
-    for (std::size_t i = 0; i < input_size; ++i) {
-        REQUIRE_FALSE(chunker.update(0x42).has_value());
-    }
+    std::vector<std::uint8_t> data(input_size, 0x42);
+
+    const auto boundaries = chunker.consume(data);
+
+    REQUIRE(boundaries.empty());
 
     const auto boundary = chunker.finish();
 
@@ -98,22 +140,26 @@ TEST_CASE("Chunker finish emits the remaining tail with correct offset", "[chunk
 
     std::optional<ChunkBoundary> emitted_boundary;
 
-    for (std::size_t i = 0; i < 10 * kMaxChunkSize; ++i) {
-        const auto boundary = chunker.update(static_cast<std::uint8_t>(i & 0xFF));
+    for (std::size_t i = 0; i < 10 * kMaxChunkSize && !emitted_boundary; ++i) {
+        const std::uint8_t byte = static_cast<std::uint8_t>(i & 0xFF);
+        const std::span<const std::uint8_t> input(&byte, 1);
 
-        if (boundary) {
-            emitted_boundary = boundary;
-            break;
+        const auto boundaries = chunker.consume(input);
+
+        if (!boundaries.empty()) {
+            REQUIRE(boundaries.size() == 1);
+            emitted_boundary = boundaries.front();
         }
     }
 
     REQUIRE(emitted_boundary.has_value());
 
     constexpr std::size_t tail_size = 100;
+    std::vector<std::uint8_t> tail(tail_size, 0x42);
 
-    for (std::size_t i = 0; i < tail_size; ++i) {
-        REQUIRE_FALSE(chunker.update(0x42).has_value());
-    }
+    const auto tail_boundaries = chunker.consume(tail);
+
+    REQUIRE(tail_boundaries.empty());
 
     const auto final_boundary = chunker.finish();
 
@@ -127,9 +173,11 @@ TEST_CASE("Chunker finish does not emit the final chunk twice", "[chunker]") {
 
     constexpr std::size_t input_size = 100;
 
-    for (std::size_t i = 0; i < input_size; ++i) {
-        REQUIRE_FALSE(chunker.update(0x42).has_value());
-    }
+    std::vector<std::uint8_t> data(input_size, 0x42);
+
+    const auto boundaries = chunker.consume(data);
+
+    REQUIRE(boundaries.empty());
 
     const auto first = chunker.finish();
     const auto second = chunker.finish();

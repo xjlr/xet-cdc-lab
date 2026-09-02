@@ -5,6 +5,8 @@
 
 #include <cstdint>
 #include <optional>
+#include <span>
+#include <vector>
 
 namespace xet::cdc {
 
@@ -12,10 +14,14 @@ class Chunker {
   public:
     Chunker() noexcept = default;
 
-    [[nodiscard]] std::optional<ChunkBoundary> update(std::uint8_t byte) noexcept;
+    [[nodiscard]] std::vector<ChunkBoundary>
+    consume(std::span<const std::uint8_t> data);
+
     [[nodiscard]] std::optional<ChunkBoundary> finish() noexcept;
 
   private:
+    [[nodiscard]] std::optional<ChunkBoundary> update(std::uint8_t byte) noexcept;
+
     GearHash hash_;
 
     std::uint64_t chunk_offset_{};
