@@ -1,14 +1,18 @@
-#include "xet_cdc/chunker.hpp"
+#include "xet_cdc/chunk_validation.hpp"
+#include "xet_cdc/file_chunker.hpp"
 #include "xet_cdc/protocol.hpp"
+#include "xet_cdc/reference_manifest.hpp"
 
-#include <array>
 #include <cstdint>
-#include <fstream>
+#include <exception>
 #include <iostream>
-#include <span>
 #include <string_view>
+#include <variant>
+#include <vector>
 
 namespace {
+
+using namespace xet::cdc;
 
 void print_usage(std::ostream& output) {
     output << "xet-cdc-lab\n\n"
@@ -19,6 +23,52 @@ void print_usage(std::ostream& output) {
               "Commands will be implemented one at a time.\n";
 }
 
+int run_chunk(int argc, char* argv[]) {
+    if (argc != 3) {
+        std::cerr << "Usage: xet-cdc chunk <file>\n";
+        return 1;
+    }
+
+    const auto boundaries = chunk_file(argv[2]);
+
+    for (const auto& boundary : boundaries) {
+        std::cout << "Chunk: offset=" << boundary.offset << ", size=" << boundary.size << "\n";
+    }
+
+    return 0;
+}
+
+int run_validate(int argc, char* argv[]) {
+    if (argc != 4) {
+        std::cerr << "Usage: xet-cdc validate <file> <reference.chunks>\n";
+        return 1;
+    }
+
+    const std::vector<ChunkBoundary> boundaries = chunk_file(argv[2]);
+    const std::vector<std::uint32_t> expected_sizes = load_reference_chunk_sizes(argv[3]);
+
+    const auto mismatch = compare_chunk_sizes(boundaries, expected_sizes);
+
+    if (!mismatch) {
+        std::cout << "Validation successful: " << boundaries.size() << " chunks matched.\n";
+        return 0;
+    }
+
+    if (const auto* size_mismatch = std::get_if<ChunkSizeMismatch>(&*mismatch)) {
+        std::cerr << "Validation failed at chunk " << size_mismatch->index << ":\n"
+                  << "  expected size: " << size_mismatch->expected_size << "\n"
+                  << "  actual size:   " << size_mismatch->actual_size << "\n";
+        return 1;
+    }
+
+    const auto& count_mismatch = std::get<ChunkCountMismatch>(*mismatch);
+
+    std::cerr << "Validation failed: chunk count mismatch:\n"
+              << "  expected chunks: " << count_mismatch.expected_count << "\n"
+              << "  actual chunks:   " << count_mismatch.actual_count << "\n";
+    return 1;
+}
+
 } // namespace
 
 int main(int argc, char* argv[]) {
@@ -27,52 +77,22 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    if (std::string_view{argv[1]} == "chunk") {
-        if (argc != 3) {
-            std::cerr << "Usage: xet-cdc chunk <file>\n";
-            return 1;
+    const std::string_view command{argv[1]};
+
+    try {
+        if (command == "chunk") {
+            return run_chunk(argc, argv);
         }
 
-        xet::cdc::Chunker chunker;
-
-        std::ifstream input_file(argv[2], std::ios::binary);
-        if (!input_file) {
-            std::cerr << "Error opening file: " << argv[2] << "\n";
-            return 1;
+        if (command == "validate") {
+            return run_validate(argc, argv);
         }
-
-        std::array<std::uint8_t, 64 * 1024> buffer;
-
-        while (input_file) {
-            input_file.read(reinterpret_cast<char*>(buffer.data()),
-                            static_cast<std::streamsize>(buffer.size()));
-
-            const std::streamsize bytes_read = input_file.gcount();
-
-            if (bytes_read > 0) {
-                const auto data = std::span<const std::uint8_t>(
-                    buffer.data(), static_cast<std::size_t>(bytes_read));
-
-                const auto boundaries = chunker.consume(data);
-
-                for (const auto& boundary : boundaries) {
-                    std::cout << "Chunk: offset=" << boundary.offset << ", size=" << boundary.size
-                              << "\n";
-                }
-            }
-        }
-
-        const auto final_boundary = chunker.finish();
-
-        if (final_boundary) {
-            std::cout << "Chunk: offset=" << final_boundary->offset
-                      << ", size=" << final_boundary->size << "\n";
-        }
-
-        return 0;
+    } catch (const std::exception& error) {
+        std::cerr << error.what() << "\n";
+        return 1;
     }
 
-    std::cerr << "Command not implemented yet: " << argv[1] << "\n\n";
+    std::cerr << "Command not implemented yet: " << command << "\n\n";
     print_usage(std::cerr);
     return 2;
 }
