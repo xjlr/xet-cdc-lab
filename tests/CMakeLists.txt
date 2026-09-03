@@ -20,6 +20,7 @@ add_executable(
     file_chunker_test.cpp
     reference_manifest_test.cpp
     chunk_validation_test.cpp
+    chunk_hash_test.cpp
 )
 target_link_libraries(
     xet_cdc_tests

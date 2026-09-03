@@ -4,7 +4,10 @@ project(
     xet_cdc_lab
     VERSION 0.1.0
     DESCRIPTION "A C++20 exploration of Hugging Face Xet content-defined chunking"
-    LANGUAGES CXX
+    # C is enabled for the vendored BLAKE3 implementation. It must be listed
+    # here rather than only in that subproject, so that CMake detects the C
+    # compiler's features for BLAKE3's target_compile_features(... c_std_99).
+    LANGUAGES CXX C
 )
 
 option(XET_CDC_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
@@ -12,6 +15,19 @@ option(XET_CDC_BUILD_TESTING "Build the xet-cdc-lab tests" ${PROJECT_IS_TOP_LEVE
 option(XET_CDC_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+include(FetchContent)
+
+# Official BLAKE3 C implementation v1.8.2, used for the keyed chunk hash. The
+# archive hash makes the downloaded dependency content-addressed and
+# reproducible, matching how the tests fetch Catch2.
+FetchContent_Declare(
+    BLAKE3
+    URL https://github.com/BLAKE3-team/BLAKE3/archive/refs/tags/1.8.2.tar.gz
+    URL_HASH SHA256=6b51aefe515969785da02e87befafc7fdc7a065cd3458cf1141f29267749e81f
+    SOURCE_SUBDIR c
+)
+FetchContent_MakeAvailable(BLAKE3)
 
 # Warning flags are private project build settings. Consumers of the library
 # must not inherit them merely by linking to xet_cdc.
@@ -69,6 +85,7 @@ add_library(
         src/file_chunker.cpp
         src/reference_manifest.cpp
         src/chunk_validation.cpp
+        src/chunk_hash.cpp
 )
 add_library(xet_cdc::xet_cdc ALIAS xet_cdc)
 
@@ -81,6 +98,7 @@ target_include_directories(
 target_link_libraries(
     xet_cdc
     PRIVATE
+        BLAKE3::blake3
         xet_cdc_warnings
         xet_cdc_sanitizers
 )
