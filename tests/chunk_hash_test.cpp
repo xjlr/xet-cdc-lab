@@ -110,12 +110,12 @@ constexpr std::string_view kSecondChunkText =
     "26255591fa803b6baf25d88c315b8a6f5153d5bcfdf18ec5ef526264e0ccc907";
 
 TEST_CASE("to_xet_hex encodes the specification's worked example", "[chunk_hash][xet_hex]") {
-    REQUIRE(to_xet_hex(kSpecExampleHash) == kSpecExampleText);
+    REQUIRE(to_xet_hex(kSpecExampleHash) == std::string{kSpecExampleText});
 }
 
 TEST_CASE("to_xet_hex encodes a published reference chunk hash", "[chunk_hash][xet_hex]") {
-    REQUIRE(to_xet_hex(kFirstChunkHash) == kFirstChunkText);
-    REQUIRE(to_xet_hex(kSecondChunkHash) == kSecondChunkText);
+    REQUIRE(to_xet_hex(kFirstChunkHash) == std::string{kFirstChunkText});
+    REQUIRE(to_xet_hex(kSecondChunkHash) == std::string{kSecondChunkText});
 }
 
 TEST_CASE("to_xet_hex is not a plain hex dump of the raw bytes", "[chunk_hash][xet_hex]") {
@@ -135,18 +135,18 @@ TEST_CASE("parse_xet_hash decodes a published reference chunk hash", "[chunk_has
 TEST_CASE("parse_xet_hash round-trips a raw hash", "[chunk_hash][xet_hex]") {
     REQUIRE(parse_xet_hash(to_xet_hex(kSpecExampleHash)) == kSpecExampleHash);
     REQUIRE(parse_xet_hash(to_xet_hex(kFirstChunkHash)) == kFirstChunkHash);
-    REQUIRE(parse_xet_hash(to_xet_hex(hash_chunk(bytes_of("hello")))) ==
-            hash_chunk(bytes_of("hello")));
+
+    const ChunkHash hello_hash = hash_chunk(bytes_of("hello"));
+    REQUIRE(parse_xet_hash(to_xet_hex(hello_hash)) == hello_hash);
 }
 
 TEST_CASE("to_xet_hex round-trips a hash string", "[chunk_hash][xet_hex]") {
-    REQUIRE(to_xet_hex(parse_xet_hash(kFirstChunkText)) == kFirstChunkText);
-    REQUIRE(to_xet_hex(parse_xet_hash(kSecondChunkText)) == kSecondChunkText);
+    REQUIRE(to_xet_hex(parse_xet_hash(kFirstChunkText)) == std::string{kFirstChunkText});
+
+    REQUIRE(to_xet_hex(parse_xet_hash(kSecondChunkText)) == std::string{kSecondChunkText});
 }
 
 TEST_CASE("to_xet_hex produces 64 lowercase hex characters", "[chunk_hash][xet_hex]") {
-    // 0x00..0x1f alone never yields the digits a-f in the high nibble, so a
-    // second vector covers the rest of the alphabet.
     for (const ChunkHash& hash : {kSpecExampleHash, kFirstChunkHash, kSecondChunkHash}) {
         const std::string text = to_xet_hex(hash);
 
@@ -188,5 +188,4 @@ TEST_CASE("parse_xet_hash rejects a malformed hash string", "[chunk_hash][xet_he
         REQUIRE_THROWS_AS(parse_xet_hash(std::string{kFirstChunkText} + "\n"), std::runtime_error);
     }
 }
-
 } // namespace
