@@ -45,7 +45,16 @@ int run_validate(int argc, char* argv[]) {
     }
 
     const std::vector<ChunkBoundary> boundaries = chunk_file(argv[2]);
-    const std::vector<std::uint32_t> expected_sizes = load_reference_chunk_sizes(argv[3]);
+    const std::vector<ReferenceChunk> reference = load_reference_manifest(argv[3]);
+
+    // TODO: compare hashes too, instead of projecting the manifest down to its
+    // chunk sizes for the size-only validation layer.
+    std::vector<std::uint32_t> expected_sizes;
+    expected_sizes.reserve(reference.size());
+
+    for (const ReferenceChunk& chunk : reference) {
+        expected_sizes.push_back(chunk.size);
+    }
 
     const auto mismatch = compare_chunk_sizes(boundaries, expected_sizes);
 

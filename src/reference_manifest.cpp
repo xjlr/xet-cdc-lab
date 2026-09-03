@@ -1,98 +1,104 @@
 #include "xet_cdc/reference_manifest.hpp"
 
+#include <stdexcept>
 #include <charconv>
-#include <cstddef>
 #include <fstream>
 #include <istream>
 #include <sstream>
-#include <stdexcept>
 #include <string>
 #include <system_error>
+#include <vector>
 
 namespace xet::cdc {
-namespace {
 
-[[nodiscard]] bool is_blank(const std::string& line) {
-    return line.find_first_not_of(" \t") == std::string::npos;
-}
-
-[[nodiscard]] std::runtime_error malformed_line(std::size_t line_number,
-                                                const std::string& reason) {
-    return std::runtime_error("Malformed manifest line " + std::to_string(line_number) + ": " +
-                              reason);
-}
-
-[[nodiscard]] std::uint32_t parse_chunk_size(const std::string& token, std::size_t line_number) {
-    std::uint32_t size = 0;
-
-    const char* const first = token.data();
-    const char* const last = first + token.size();
-
-    const auto [pointer, error] = std::from_chars(first, last, size);
-
-    if (error == std::errc::result_out_of_range) {
-        throw malformed_line(line_number, "chunk size out of range: " + token);
+std::vector<ReferenceChunk>
+parse_reference_manifest(std::istream& input) {
+    if (!input) {
+        throw std::runtime_error("Input stream is not valid");
     }
 
-    if (error != std::errc{} || pointer != last) {
-        throw malformed_line(line_number, "invalid chunk size: " + token);
-    }
-
-    return size;
-}
-
-} // namespace
-
-std::vector<std::uint32_t> parse_reference_chunk_sizes(std::istream& input) {
-    std::vector<std::uint32_t> sizes;
-
+    std::vector<ReferenceChunk> chunks;
     std::string line;
     std::size_t line_number = 0;
 
     while (std::getline(input, line)) {
         ++line_number;
 
+        // Remove CR left by CRLF line endings.
         if (!line.empty() && line.back() == '\r') {
             line.pop_back();
         }
 
-        if (is_blank(line)) {
+        // Skip empty or whitespace-only lines.
+        if (line.find_first_not_of(" \t") == std::string::npos) {
             continue;
         }
 
-        std::istringstream fields(line);
+        std::istringstream line_stream(line);
 
-        std::string hash;
-        std::string size_token;
-        std::string trailing;
+        std::string hash_text;
+        std::string size_text;
+        std::string extra;
 
-        if (!(fields >> hash >> size_token)) {
-            throw malformed_line(line_number, "expected '<hash> <size>'");
+        if (!(line_stream >> hash_text >> size_text)) {
+            throw std::runtime_error(
+                "Malformed reference manifest at line " +
+                std::to_string(line_number));
         }
 
-        if (fields >> trailing) {
-            throw malformed_line(line_number, "unexpected trailing field: " + trailing);
+        if (line_stream >> extra) {
+            throw std::runtime_error(
+                "Unexpected extra field in reference manifest at line " +
+                std::to_string(line_number));
         }
 
-        sizes.push_back(parse_chunk_size(size_token, line_number));
+        std::uint32_t size = 0;
+
+        const char* first = size_text.data();
+        const char* last = first + size_text.size();
+
+        const auto [ptr, ec] =
+            std::from_chars(first, last, size);
+
+        if (ec != std::errc{} || ptr != last) {
+            throw std::runtime_error(
+                "Invalid chunk size at line " +
+                std::to_string(line_number) +
+                ": " + size_text);
+        }
+
+        ChunkHash hash;
+        try {
+            hash = parse_xet_hash(hash_text);
+        } catch (const std::runtime_error& e) {
+            throw std::runtime_error(
+                "Invalid hash at line " +
+                std::to_string(line_number) +
+                ": " + e.what());
+        }
+
+        chunks.push_back(ReferenceChunk{
+            .hash = hash,
+            .size = size,
+        });
     }
 
-    return sizes;
+    return chunks;
 }
 
-std::vector<std::uint32_t> load_reference_chunk_sizes(const std::filesystem::path& path) {
+std::vector<ReferenceChunk> load_reference_manifest(const std::filesystem::path& path) {
     std::ifstream input_file(path);
     if (!input_file) {
         throw std::runtime_error("Error opening reference manifest: " + path.string());
     }
 
-    std::vector<std::uint32_t> sizes = parse_reference_chunk_sizes(input_file);
+    std::vector<ReferenceChunk> chunks = parse_reference_manifest(input_file);
 
     if (input_file.bad()) {
         throw std::runtime_error("Error reading reference manifest: " + path.string());
     }
 
-    return sizes;
+    return chunks;
 }
 
 } // namespace xet::cdc
