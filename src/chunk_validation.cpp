@@ -1,24 +1,16 @@
 #include "xet_cdc/chunk_validation.hpp"
 
-#include <algorithm>
-
 namespace xet::cdc {
 
-std::optional<ChunkSizeMismatchReport>
-compare_chunk_sizes(std::span<const ChunkBoundary> actual,
-                    std::span<const std::uint32_t> expected) {
-    const std::size_t shared_count = std::min(actual.size(), expected.size());
-
-    for (std::size_t index = 0; index < shared_count; ++index) {
-        if (actual[index].size != expected[index]) {
-            return ChunkSizeMismatch{index, expected[index], actual[index].size};
-        }
-    }
-
-    if (actual.size() != expected.size()) {
-        return ChunkCountMismatch{expected.size(), actual.size()};
-    }
-
+std::optional<ChunkValidationMismatch> compare_chunks(std::span<const HashedChunk>,
+                                                      std::span<const ReferenceChunk>) {
+    // TODO: implement the comparison.
+    //
+    // Walk the shared prefix of the two sequences. For each index, report a
+    // ChunkSizeMismatch when the sizes differ, otherwise a ChunkHashMismatch
+    // when the hashes differ. If the whole shared prefix matched but the
+    // sequences have different lengths, report a ChunkCountMismatch. Otherwise
+    // return std::nullopt.
     return std::nullopt;
 }
 

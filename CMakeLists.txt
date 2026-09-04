@@ -82,6 +82,7 @@ add_library(
     STATIC
         src/gear_hash.cpp
         src/chunker.cpp
+        src/hashing_chunker.cpp
         src/file_chunker.cpp
         src/reference_manifest.cpp
         src/chunk_validation.cpp

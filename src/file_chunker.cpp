@@ -1,6 +1,7 @@
 #include "xet_cdc/file_chunker.hpp"
 
 #include "xet_cdc/chunker.hpp"
+#include "xet_cdc/hashing_chunker.hpp"
 
 #include <array>
 #include <cstddef>
@@ -54,6 +55,14 @@ std::vector<ChunkBoundary> chunk_file(const std::filesystem::path& path) {
     }
 
     return boundaries;
+}
+
+std::vector<HashedChunk> hash_file_chunks(const std::filesystem::path&) {
+    // TODO: stream the file exactly as chunk_file() does above -- same open and
+    // read-error handling, same kReadBufferSize reads -- but feed the buffers
+    // to a HashingChunker instead of a Chunker, appending every emitted
+    // HashedChunk and finally the one HashingChunker::finish() returns.
+    return {};
 }
 
 } // namespace xet::cdc
