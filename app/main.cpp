@@ -1,9 +1,10 @@
+#include "xet_cdc/chunk_hash.hpp"
 #include "xet_cdc/chunk_validation.hpp"
 #include "xet_cdc/file_chunker.hpp"
+#include "xet_cdc/hashed_chunk.hpp"
 #include "xet_cdc/protocol.hpp"
 #include "xet_cdc/reference_manifest.hpp"
 
-#include <cstdint>
 #include <exception>
 #include <iostream>
 #include <string_view>
@@ -44,22 +45,13 @@ int run_validate(int argc, char* argv[]) {
         return 1;
     }
 
-    const std::vector<ChunkBoundary> boundaries = chunk_file(argv[2]);
+    const std::vector<HashedChunk> chunks = hash_file_chunks(argv[2]);
     const std::vector<ReferenceChunk> reference = load_reference_manifest(argv[3]);
 
-    // TODO: compare hashes too, instead of projecting the manifest down to its
-    // chunk sizes for the size-only validation layer.
-    std::vector<std::uint32_t> expected_sizes;
-    expected_sizes.reserve(reference.size());
-
-    for (const ReferenceChunk& chunk : reference) {
-        expected_sizes.push_back(chunk.size);
-    }
-
-    const auto mismatch = compare_chunk_sizes(boundaries, expected_sizes);
+    const auto mismatch = compare_chunks(chunks, reference);
 
     if (!mismatch) {
-        std::cout << "Validation successful: " << boundaries.size() << " chunks matched.\n";
+        std::cout << "Validation successful: " << chunks.size() << " chunks matched.\n";
         return 0;
     }
 
@@ -67,6 +59,13 @@ int run_validate(int argc, char* argv[]) {
         std::cerr << "Validation failed at chunk " << size_mismatch->index << ":\n"
                   << "  expected size: " << size_mismatch->expected_size << "\n"
                   << "  actual size:   " << size_mismatch->actual_size << "\n";
+        return 1;
+    }
+
+    if (const auto* hash_mismatch = std::get_if<ChunkHashMismatch>(&*mismatch)) {
+        std::cerr << "Validation failed at chunk " << hash_mismatch->index << ":\n"
+                  << "  expected hash: " << to_xet_hex(hash_mismatch->expected_hash) << "\n"
+                  << "  actual hash:   " << to_xet_hex(hash_mismatch->actual_hash) << "\n";
         return 1;
     }
 

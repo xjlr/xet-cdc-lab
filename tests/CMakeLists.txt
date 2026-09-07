@@ -18,9 +18,11 @@ add_executable(
     gear_hash_test.cpp
     chunker_test.cpp
     file_chunker_test.cpp
+    hashing_chunker_test.cpp
     reference_manifest_test.cpp
     chunk_validation_test.cpp
     chunk_hash_test.cpp
+    reference_data_test.cpp
 )
 target_link_libraries(
     xet_cdc_tests
@@ -29,6 +31,13 @@ target_link_libraries(
         xet_cdc_warnings
         xet_cdc_sanitizers
         Catch2::Catch2WithMain
+)
+# The reference pair is downloaded, not committed; reference_data_test.cpp
+# skips itself when the directory is empty.
+target_compile_definitions(
+    xet_cdc_tests
+    PRIVATE
+        XET_CDC_REFERENCE_DATA_DIR="${PROJECT_SOURCE_DIR}/reference-data"
 )
 set_target_properties(xet_cdc_tests PROPERTIES CXX_EXTENSIONS OFF)
 
