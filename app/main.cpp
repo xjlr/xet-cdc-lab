@@ -1,4 +1,5 @@
 #include "xet_cdc/chunk_hash.hpp"
+#include "xet_cdc/chunk_reuse.hpp"
 #include "xet_cdc/chunk_validation.hpp"
 #include "xet_cdc/file_chunker.hpp"
 #include "xet_cdc/hashed_chunk.hpp"
@@ -6,6 +7,8 @@
 #include "xet_cdc/reference_manifest.hpp"
 
 #include <exception>
+#include <iomanip>
+#include <ios>
 #include <iostream>
 #include <string_view>
 #include <variant>
@@ -77,6 +80,43 @@ int run_validate(int argc, char* argv[]) {
     return 1;
 }
 
+// The share of the modified file's bytes that the original already holds. It is
+// a byte ratio rather than a chunk ratio, because CDC chunk sizes vary and only
+// bytes say how much an upload could skip. An empty modified file has nothing
+// to reuse, and no ratio to report.
+[[nodiscard]] double reuse_ratio(const ChunkReuseResult& result) {
+    if (result.modified_bytes == 0) {
+        return 0.0;
+    }
+
+    return static_cast<double>(result.reused_bytes) / static_cast<double>(result.modified_bytes);
+}
+
+int run_compare(int argc, char* argv[]) {
+    if (argc != 4) {
+        std::cerr << "Usage: xet-cdc compare <original> <modified>\n";
+        return 1;
+    }
+
+    const std::vector<HashedChunk> original = hash_file_chunks(argv[2]);
+    const std::vector<HashedChunk> modified = hash_file_chunks(argv[3]);
+
+    const ChunkReuseResult result = compare_chunk_reuse(original, modified);
+
+    std::cout << "Original chunks: " << result.original_chunk_count << "\n"
+              << "Modified chunks: " << result.modified_chunk_count << "\n"
+              << "Reused chunks:   " << result.reused_chunk_count << "\n"
+              << "New chunks:      " << result.new_chunk_count << "\n\n"
+              << "Original bytes:  " << result.original_bytes << "\n"
+              << "Modified bytes:  " << result.modified_bytes << "\n"
+              << "Reused bytes:    " << result.reused_bytes << "\n"
+              << "New bytes:       " << result.new_bytes << "\n"
+              << "Reuse ratio:     " << std::fixed << std::setprecision(2)
+              << reuse_ratio(result) * 100.0 << "%\n";
+
+    return 0;
+}
+
 } // namespace
 
 int main(int argc, char* argv[]) {
@@ -94,6 +134,10 @@ int main(int argc, char* argv[]) {
 
         if (command == "validate") {
             return run_validate(argc, argv);
+        }
+
+        if (command == "compare") {
+            return run_compare(argc, argv);
         }
     } catch (const std::exception& error) {
         std::cerr << error.what() << "\n";

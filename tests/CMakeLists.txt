@@ -22,6 +22,7 @@ add_executable(
     reference_manifest_test.cpp
     chunk_validation_test.cpp
     chunk_hash_test.cpp
+    chunk_reuse_test.cpp
     reference_data_test.cpp
 )
 target_link_libraries(

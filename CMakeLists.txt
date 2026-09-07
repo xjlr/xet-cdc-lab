@@ -87,6 +87,7 @@ add_library(
         src/reference_manifest.cpp
         src/chunk_validation.cpp
         src/chunk_hash.cpp
+        src/chunk_reuse.cpp
 )
 add_library(xet_cdc::xet_cdc ALIAS xet_cdc)
 

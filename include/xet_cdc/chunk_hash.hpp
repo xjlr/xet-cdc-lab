@@ -5,6 +5,8 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <cstring>
+#include <cstddef>
 
 namespace xet::cdc {
 
@@ -15,6 +17,17 @@ struct ChunkHash {
     std::array<std::uint8_t, 32> bytes{};
 
     friend constexpr bool operator==(const ChunkHash&, const ChunkHash&) = default;
+};
+
+// ChunkHash is already a cryptographic digest with uniformly distributed bits,
+// so the bucket index needs no mixing: the leading bytes are as good a size_t
+// as any function could produce from them.
+struct ChunkHashHasher {
+    std::size_t operator()(const ChunkHash& hash) const noexcept {
+        std::size_t value = 0;
+        std::memcpy(&value, hash.bytes.data(), sizeof(value));
+        return value;
+    }
 };
 
 // Computes the chunk hash of a complete chunk: keyed BLAKE3 over the chunk
