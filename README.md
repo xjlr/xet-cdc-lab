@@ -50,7 +50,119 @@ small, independently tested steps.
 - compare content hashes between the original and modified versions;
 - report reused chunks, new chunks, reused bytes, and reuse percentage.
 
-Performance benchmarking is intentionally postponed until correctness is demonstrated.
+## Benchmarks
+
+The validation command performs the full pipeline:
+
+1. content-defined chunking;
+2. keyed BLAKE3 hashing;
+3. Xet hash conversion;
+4. comparison against the published reference manifest.
+
+The reference file contains **796 chunks**.
+
+### Debug vs Release
+
+Debug build:
+
+```text
+Validation successful: 796 chunks matched.
+
+real    0m4.599s
+user    0m4.582s
+sys     0m0.016s
+```
+
+Release build:
+
+```text
+Validation successful: 796 chunks matched.
+
+real    0m0.415s
+user    0m0.395s
+sys     0m0.020s
+```
+
+The Release build is roughly **11x faster** than the Debug build.
+
+### Release benchmark stability
+
+Ten consecutive Release runs produced:
+
+```text
+0.41
+0.41
+0.41
+0.42
+0.41
+0.41
+0.41
+0.40
+0.43
+0.44
+```
+
+Summary:
+
+- median runtime: **~0.41 s**;
+- observed range: **0.40-0.44 s**;
+- validated chunks: **796**.
+
+The timings are stable across repeated runs.
+
+### CDC reuse experiments
+
+Small edits were applied to a ~63.5 MB CSV file and compared against the original
+using chunk hashes.
+
+#### 1-byte deletion in the middle
+
+```text
+Original chunks: 796
+Modified chunks: 796
+Reused chunks:   794
+New chunks:      2
+
+Original bytes:  63527244
+Modified bytes:  63527243
+Reused bytes:    63327129
+New bytes:       200114
+Reuse ratio:     99.68%
+```
+
+#### 1-byte insertion in the middle
+
+```text
+Original chunks: 796
+Modified chunks: 796
+Reused chunks:   795
+New chunks:      1
+
+Original bytes:  63527244
+Modified bytes:  63527245
+Reused bytes:    63436649
+New bytes:       90596
+Reuse ratio:     99.86%
+```
+
+#### `"hello world"` inserted at the beginning
+
+```text
+Original chunks: 796
+Modified chunks: 796
+Reused chunks:   794
+New chunks:      2
+
+Original bytes:  63527244
+Modified bytes:  63527258
+Reused bytes:    63290073
+New bytes:       237185
+Reuse ratio:     99.63%
+```
+
+These experiments show the expected CDC behavior: local edits disturb only a small
+region of chunk boundaries, after which the chunker resynchronizes and most later
+chunks remain reusable.
 
 ## Design
 
