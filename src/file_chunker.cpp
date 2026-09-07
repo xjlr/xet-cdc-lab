@@ -58,21 +58,20 @@ std::vector<ChunkBoundary> chunk_file(const std::filesystem::path& path) {
 }
 
 std::vector<HashedChunk> hash_file_chunks(const std::filesystem::path& path) {
-    // TODO: stream the file exactly as chunk_file() does above -- same open and
-    // read-error handling, same kReadBufferSize reads -- but feed the buffers
-    // to a HashingChunker instead of a Chunker, appending every emitted
-    // HashedChunk and finally the one HashingChunker::finish() returns.
     std::ifstream input_file(path, std::ios::binary);
     if (!input_file) {
         throw std::runtime_error("Error opening file: " + path.string());
     }
+
     HashingChunker hashing_chunker;
     std::vector<HashedChunk> hashed_chunks;
     std::array<std::uint8_t, kReadBufferSize> buffer{};
+
     while (input_file) {
         input_file.read(reinterpret_cast<char*>(buffer.data()),
                         static_cast<std::streamsize>(buffer.size()));
         const std::streamsize bytes_read = input_file.gcount();
+
         if (bytes_read > 0) {
             const auto data =
                 std::span<const std::uint8_t>(buffer.data(), static_cast<std::size_t>(bytes_read));
@@ -80,7 +79,7 @@ std::vector<HashedChunk> hash_file_chunks(const std::filesystem::path& path) {
             hashed_chunks.insert(hashed_chunks.end(), emitted.begin(), emitted.end());
         }
     }
-    //hashing_chunker.finish();
+
     if (const auto final_chunk = hashing_chunker.finish()) {
         hashed_chunks.push_back(*final_chunk);
     }
