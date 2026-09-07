@@ -23,8 +23,7 @@ void print_usage(std::ostream& output) {
               "Usage:\n"
               "  xet-cdc chunk <file>\n"
               "  xet-cdc validate <file> <reference.chunks>\n"
-              "  xet-cdc compare <original> <modified>\n\n"
-              "Commands will be implemented one at a time.\n";
+              "  xet-cdc compare <original> <modified>\n\n";
 }
 
 int run_chunk(int argc, char* argv[]) {

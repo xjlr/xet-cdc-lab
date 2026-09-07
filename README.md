@@ -21,9 +21,6 @@ xet-cdc compare <original> <modified>
 - `validate` will compare locally computed chunks with Hugging Face's reference manifest.
 - `compare` will report chunk and byte reuse between two versions of a file.
 
-The CLI currently exposes the command structure only. The algorithm will be added in
-small, independently tested steps.
-
 ## Scope
 
 ### Phase 1: exact chunk boundaries
