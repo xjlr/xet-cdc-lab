@@ -37,8 +37,8 @@ struct ChunkReuseResult {
 // Measures how much of `modified` can be reused from `original`.
 //
 // Reuse is content-addressed: a modified chunk is reusable when a chunk with
-// the same ChunkHash appears anywhere in the original. Neither position nor offset takes part. 
-// After a local edit perturbs the chunking, CDC can resynchronize, 
+// the same ChunkHash appears anywhere in the original. Neither position nor offset takes part.
+// After a local edit perturbs the chunking, CDC can resynchronize,
 // allowing later unchanged chunks to be reused even though their offsets have shifted.
 //
 // Matching is by content existence, not by one-to-one pairing: the original's

@@ -1,12 +1,12 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <span>
 #include <string>
 #include <string_view>
-#include <cstring>
-#include <cstddef>
 
 namespace xet::cdc {
 
